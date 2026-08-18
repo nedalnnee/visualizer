@@ -1,38 +1,35 @@
 import { useEffect, useState } from 'react';
+import { apiGet } from '../lib/apiClient';
 import type { Graph } from '../types/graph';
 
-interface UseGraphResult {
-  graph: Graph | null;
-  loading: boolean;
-  error: string | null;
-}
-
-// Loads /graph.json (served from public/ in dev, or wherever it's deployed
-// alongside the built app) — the one artifact backend/ and frontend/ share.
-export function useGraph(url = '/graph.json'): UseGraphResult {
+// Fetches the FULL graph for a project, once. Scoping to a module/file and
+// expanding cross-file connections both happen client-side against this
+// (see ProjectExplorer) rather than as separate API calls — simplest thing
+// that works at the "100+ nodes" scale this tool targets.
+export function useProjectGraph(projectId: number) {
   const [graph, setGraph] = useState<Graph | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
+    setError(null);
+    setGraph(null);
 
-    fetch(url)
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error(`Failed to load ${url}: ${res.status} ${res.statusText}`);
-        }
-        return res.json() as Promise<Graph>;
-      })
+    apiGet<Graph>(`/api/graph?project_id=${projectId}`)
       .then((data) => {
         if (!cancelled) {
           setGraph(data);
-          setLoading(false);
         }
       })
       .catch((err: Error) => {
         if (!cancelled) {
           setError(err.message);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
           setLoading(false);
         }
       });
@@ -40,7 +37,7 @@ export function useGraph(url = '/graph.json'): UseGraphResult {
     return () => {
       cancelled = true;
     };
-  }, [url]);
+  }, [projectId]);
 
   return { graph, loading, error };
 }

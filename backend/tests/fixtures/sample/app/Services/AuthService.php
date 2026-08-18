@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Support\Logger;
+
 class AuthService
 {
     public function login(): void
@@ -11,7 +13,7 @@ class AuthService
 
     private static function log(string $message): void
     {
-        // no-op for the fixture
+        Logger::write($message);
     }
 
     public function unusedMethod(): void

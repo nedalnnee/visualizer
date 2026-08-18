@@ -10,36 +10,65 @@ structural issues, circular dependencies, dead code, and syntax errors are visib
 in a node-based UI. Full design rationale and phase breakdown live in
 `docs/SPEC.md` — read it before making architectural changes.
 
-The two halves communicate through exactly one artifact: a `graph.json` file
-matching the schema in `docs/SCHEMA.md`. `backend/` produces it, `frontend/`
-consumes it. There is no live API between them (at least not yet — see
-`docs/SPEC.md` if that changes).
+The two halves talk over a small live HTTP API (`backend/public/index.php`,
+`composer serve`) rather than a static file — see "Dashboard / multi-project
+API" below and Phase 5 in `docs/STATUS.md`. The `graph.json` shape itself
+(`docs/SCHEMA.md`) is unchanged: it's just returned by `GET /api/graph` now
+instead of being written to disk. `backend/bin/visualize` (the original
+one-off CLI) still exists and still writes a file — useful for a quick check
+without starting the server/DB.
 
 ## Repo layout
 
-- `backend/` — PHP CLI (Composer project, not Laravel Zero despite the original
-  spec naming it — plain Composer + `nikic/php-parser` was chosen instead). Walks
-  a target PHP directory, builds an AST per file, extracts class/method
-  declarations (nodes) and method calls (edges), runs PHPStan for dead-code /
-  warning data, and serializes the result to `graph.json`.
-- `frontend/` — Vite + React + TypeScript app. Loads `graph.json`, runs it through
-  `dagre` for auto-layout, and renders it with `@xyflow/react` (React Flow).
-  Styling is Tailwind CSS v4 (via `@tailwindcss/vite`, no `tailwind.config.js` —
-  v4 is CSS-first, configure via `@theme` in `src/index.css` if needed); the
-  node inspector side panel uses Radix UI primitives.
+- `backend/` — PHP (Composer project, not Laravel Zero despite the original spec
+  naming it — plain Composer + `nikic/php-parser` was chosen instead).
+  - `src/Extractor.php` + `src/Visitors/CallGraphVisitor.php` — walks a PHP
+    directory, builds an AST per file, extracts class/method nodes and
+    method-call edges.
+  - `src/Analysis/DeadCodeAnalyzer.php` — Phase 2's dead-code heuristic (see
+    Architecture notes below).
+  - `src/Db.php` + `src/Repository/ProjectRepository.php` — SQLite-backed
+    project registry (`storage/visualizer.sqlite`, auto-created) for the
+    dashboard's project list. Graphs themselves are never persisted — every
+    `GET /api/graph` request re-runs extraction against the filesystem.
+  - `public/index.php` — the API front controller (`composer serve`).
+  - `bin/visualize` — the original one-off CLI, unchanged.
+- `frontend/` — Vite + React + TypeScript app. `App.tsx` switches between two
+  views: `Dashboard` (list/add projects, calls the API) and `ProjectExplorer`
+  (fetches one project's full graph once, then does module/file scoping and
+  cross-file expansion client-side — see Phase 5 in `docs/STATUS.md` for why).
+  `GraphCanvas` is the reusable rendering piece: `dagre` auto-layout +
+  `@xyflow/react`. Styling is Tailwind CSS v4 (via `@tailwindcss/vite`, no
+  `tailwind.config.js` — v4 is CSS-first, configure via `@theme` in
+  `src/index.css` if needed); the node inspector side panel uses Radix UI
+  primitives.
 - `docs/` — living documentation: architecture/spec, JSON schema, and phase
   status. Keep these in sync with the code — see "Keeping docs in sync" below.
+- `run.cmd` — starts both dev servers (see "Run everything" below).
 
 Each half is independently runnable and has its own dependency manager
-(Composer vs npm) — there is no root-level build tool tying them together.
+(Composer vs npm) — there is no root-level build tool tying them together,
+just `run.cmd` launching both.
 
 ## Commands
+
+### Run everything
+
+```
+run.cmd
+```
+
+From the repo root — starts the backend API (`composer serve`, port 8000) and
+frontend dev server (`npm run dev`, port 5173) each in their own window.
+Requires `composer install` and `npm install` to have been run first (the
+script checks and tells you if not). Open http://localhost:5173.
 
 ### Backend (`backend/`)
 
 ```
 composer install                        # install nikic/php-parser + phpstan
-php bin/visualize <path> [output.json]  # extract a PHP dir to graph.json (default output.json = graph.json)
+composer serve                          # php -S localhost:8000 -t public — the dashboard's API
+php bin/visualize <path> [output.json]  # one-off: extract a PHP dir straight to a JSON file, no server/DB needed
 vendor/bin/phpstan analyse src           # static analysis
 ```
 
@@ -66,6 +95,30 @@ npm run lint      # oxlint
 
 No test runner is configured yet. When one is added, record the run command here.
 
+`npm run dev` alone renders an empty dashboard ("No projects yet") unless the
+backend API is also running (`composer serve` in `backend/`) — the frontend
+has no bundled sample data anymore now that it talks to a live API. Add the
+fixture as a project from the dashboard UI, or:
+```
+curl -X POST http://localhost:8000/api/projects -H "Content-Type: application/json" \
+  -d "{\"name\":\"fixture\",\"path\":\"<repo>/backend/tests/fixtures/sample\"}"
+```
+
+## Dashboard / multi-project API (Phase 5)
+
+`backend/public/index.php` (run via `composer serve`, port 8000) serves:
+- `GET /api/projects` — list registered projects (id, name, path, created_at)
+- `POST /api/projects` `{name, path}` — register a project; 422 if `path`
+  isn't a directory on disk
+- `GET /api/graph?project_id=<id>` — full Phase 1+2 extraction for that
+  project's path, same shape as `docs/SCHEMA.md`, computed fresh every call
+
+CORS is wide open (`Access-Control-Allow-Origin: *`) — this is a local dev
+tool, not meant to be deployed as-is. The project registry lives in
+`backend/storage/visualizer.sqlite` (SQLite, auto-created on first request);
+nothing else is persisted — there's no graph cache, so a large target project
+re-parses on every dashboard visit.
+
 ## Architecture notes
 
 - **Node/edge identity**: nodes are keyed by fully-qualified `Class::method`
@@ -90,12 +143,40 @@ No test runner is configured yet. When one is added, record the run command here
   "confirmed dead" when writing frontend UI for it — word it as a hint, per
   the wording already in `DeadCodeAnalyzer::FLAG`.
 - **Layout is computed, not stored**: `graph.json` carries no x/y coordinates.
-  The frontend runs `dagre` over the raw nodes/edges before handing them to
-  React Flow — don't add layout logic to the backend.
-- **Node visuals are data-driven**: the custom React Flow node type (`codeNode`)
-  changes appearance from `data.syntax_error` / `data.warnings` alone (red
-  border = syntax error, muted/dashed = dead code). Keep new status flags
-  flowing through `data` rather than inventing new node types.
+  `frontend/src/layout/dagreLayout.ts` runs `dagre` over the raw nodes/edges
+  before handing them to React Flow (`GraphCanvas.tsx`) — don't add layout
+  logic to the backend.
+- **Node visuals are data-driven**: `frontend/src/components/CodeNode.tsx`
+  (registered as React Flow's `codeNode` type in `GraphCanvas.tsx`) changes
+  appearance from `data.syntax_error` / `data.warnings` alone — red border =
+  syntax error, muted/dashed = dead-code flag. Keep new status flags flowing
+  through `data` rather than inventing new node types.
+- **Scoping and cross-file expansion are client-side, not new API calls**:
+  `ProjectExplorer.tsx` fetches one project's *entire* graph once, then
+  derives the file tree, the currently-rendered subset (`scopeFiles`), and
+  expansion (`expandedNodeIds`) all by filtering that one payload in memory.
+  There's no `/api/graph?scope=...` endpoint — don't add one without a reason
+  (like the target scale actually outgrowing "fetch once, filter locally").
+- **Clicking a node both opens the inspector and expands connections**: in
+  `GraphCanvas.tsx`, `onNodeClick` does both — `ProjectExplorer`'s handler
+  adds any not-yet-visible neighbor nodes (which may be in a different file)
+  into `expandedNodeIds`, merging them into the same canvas. This is *how*
+  "click a node with an external connection and it renders the other file"
+  is implemented — don't reintroduce a separate "expand" button/affordance
+  without discussing it, it was a deliberate single-interaction choice.
+- **Project registry is SQLite, not MySQL**: despite MySQL being the initial
+  ask, there was no reachable local MySQL/MariaDB with known credentials, so
+  `backend/src/Db.php` uses `pdo_sqlite` against a file in `backend/storage/`
+  — zero setup, auto-creates its schema on first connection. If this needs to
+  become MySQL later (e.g. multi-user access), that's a `Db.php` swap; the
+  `ProjectRepository` interface shouldn't need to change.
+- **The inspector drawer is deliberately non-modal**:
+  `frontend/src/components/InspectorPanel.tsx` sets Radix Dialog's
+  `modal={false}` and skips `Dialog.Overlay` on purpose — a modal overlay
+  would swallow the click when jumping straight from one node to another
+  (verified: it did, before this was changed). If you touch this component,
+  re-verify node-to-node click switching still works without a
+  close-then-click-again step.
 
 ## Keeping docs in sync
 

@@ -39,6 +39,12 @@ final class ProjectRepository
         return $this->find($id) ?? ['id' => $id, 'name' => $name, 'path' => $path, 'created_at' => ''];
     }
 
+    public function delete(int $id): bool
+    {
+        $stmt = Db::connection()->prepare('DELETE FROM projects WHERE id = :id');
+        return $stmt->execute(['id' => $id]);
+    }
+
     /**
      * @param array<string, mixed> $row
      * @return array{id: int, name: string, path: string, created_at: string}

@@ -12,7 +12,7 @@ use Visualizer\Repository\ProjectRepository;
 // Local dev tool only — CORS is wide open on purpose, don't deploy this
 // front controller as-is anywhere public.
 header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+header('Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -45,6 +45,19 @@ try {
         }
 
         JsonResponse::send($repository->create($name, $projectPath), 201);
+    }
+
+    if ($path === '/api/projects' && $method === 'DELETE') {
+        $id = (int) ($_GET['id'] ?? 0);
+        if ($id <= 0) {
+            $body = json_decode((string) file_get_contents('php://input'), true);
+            $id = (int) ($body['id'] ?? 0);
+        }
+        if ($id <= 0) {
+            JsonResponse::send(['error' => 'Project id is required'], 422);
+        }
+        $deleted = $repository->delete($id);
+        JsonResponse::send(['success' => $deleted]);
     }
 
     if ($path === '/api/graph' && $method === 'GET') {

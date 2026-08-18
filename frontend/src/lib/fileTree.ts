@@ -52,3 +52,22 @@ export function collectFiles(node: FileTreeNode): string[] {
   }
   return node.children.flatMap(collectFiles);
 }
+
+/**
+ * Returns a copy of the tree containing only files whose path matches
+ * `query` (case-insensitive substring) and the folders needed to reach them.
+ * Empty/whitespace query returns the tree unchanged.
+ */
+export function filterTree(node: FileTreeNode, query: string): FileTreeNode | null {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return node;
+
+  if (node.isFile) {
+    return node.path.toLowerCase().includes(needle) ? node : null;
+  }
+
+  const children = node.children.map((c) => filterTree(c, needle)).filter((c): c is FileTreeNode => c !== null);
+  if (children.length === 0) return null;
+
+  return { ...node, children };
+}

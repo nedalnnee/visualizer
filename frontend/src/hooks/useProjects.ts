@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { apiGet, apiPost } from '../lib/apiClient';
+import { apiGet, apiPost, apiDelete } from '../lib/apiClient';
 import type { Project } from '../types/api';
 
 export function useProjects() {
@@ -26,5 +26,10 @@ export function useProjects() {
     return project;
   }, []);
 
-  return { projects, loading, error, addProject };
+  const deleteProject = useCallback(async (id: number) => {
+    await apiDelete<{ success: boolean }>(`/api/projects?id=${id}`);
+    setProjects((prev) => prev.filter((p) => p.id !== id));
+  }, []);
+
+  return { projects, loading, error, addProject, deleteProject, reload };
 }

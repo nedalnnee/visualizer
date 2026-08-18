@@ -60,6 +60,27 @@ try {
         JsonResponse::send(['success' => $deleted]);
     }
 
+    if ($path === '/api/file' && $method === 'GET') {
+        $projectId = (int) ($_GET['project_id'] ?? 0);
+        $file = trim((string) ($_GET['file'] ?? ''));
+        $project = $projectId > 0 ? $repository->find($projectId) : null;
+
+        if ($project === null || $file === '') {
+            JsonResponse::send(['error' => 'Project and file are required'], 422);
+        }
+
+        // Prevent directory traversal
+        $safePath = realpath($project['path'] . DIRECTORY_SEPARATOR . $file);
+        $realRoot = realpath($project['path']);
+
+        if ($safePath === false || $realRoot === false || !str_starts_with($safePath, $realRoot) || !is_file($safePath)) {
+            JsonResponse::send(['error' => 'File not found or access denied'], 404);
+        }
+
+        $content = file_get_contents($safePath);
+        JsonResponse::send(['content' => $content ?: '']);
+    }
+
     if ($path === '/api/graph' && $method === 'GET') {
         $projectId = (int) ($_GET['project_id'] ?? 0);
         $project = $projectId > 0 ? $repository->find($projectId) : null;

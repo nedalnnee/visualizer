@@ -1,9 +1,25 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useProjectGraph } from '../hooks/useProjectGraph';
 import { buildFileTree, collectFiles } from '../lib/fileTree';
+import {
+  findCircularDependencies,
+  findShortestPath,
+} from '../lib/graphAnalysis';
 import { GraphCanvas } from './GraphCanvas';
 import { LoadingScreen } from './LoadingScreen';
 import { ScopePicker } from './ScopePicker';
+import {
+  SvgFolder,
+  SvgNodes,
+  SvgEdge,
+  SvgWarning,
+  SvgZap,
+  SvgCycle,
+  SvgPath,
+  SvgCopy,
+  SvgCheck,
+  SvgSearch,
+} from './Icons';
 import type { Project } from '../types/api';
 import type { Graph, GraphEdge, GraphNode } from '../types/graph';
 
@@ -21,8 +37,13 @@ export function ProjectExplorer({ project, onBack }: ProjectExplorerProps) {
   const [hideUnconnected, setHideUnconnected] = useState(false);
   const [direction, setDirection] = useState<'TB' | 'LR'>('TB');
   const [searchQuery, setSearchQuery] = useState('');
-  const [nodeFilter, setNodeFilter] = useState<'all' | 'classes' | 'methods' | 'errors' | 'warnings'>('all');
+  const [nodeFilter, setNodeFilter] = useState<'all' | 'classes' | 'methods' | 'errors' | 'warnings' | 'cycles'>('all');
   const [copied, setCopied] = useState(false);
+
+  // Pathfinding state
+  const [pathStartNode, setPathStartNode] = useState<string | null>(null);
+  const [pathEndNode, setPathEndNode] = useState<string | null>(null);
+  const [pathResult, setPathResult] = useState<{ nodeIds: string[]; edgeIds: string[] } | null>(null);
 
   const tree = useMemo(() => {
     if (!graph) return null;
@@ -41,7 +62,32 @@ export function ProjectExplorer({ project, onBack }: ProjectExplorerProps) {
   const handleSelectScope = (files: string[]) => {
     setScopeFiles(new Set(files));
     setExpandedNodeIds(new Set());
+    setPathResult(null);
   };
+
+  // Run Circular Dependency Analysis (Tarjan SCC)
+  const circularCycles = useMemo(() => {
+    if (!graph) return [];
+    return findCircularDependencies(graph.nodes, graph.edges);
+  }, [graph]);
+
+  const cycleNodeIds = useMemo(() => {
+    const set = new Set<string>();
+    for (const cycle of circularCycles) {
+      for (const id of cycle) set.add(id);
+    }
+    return set;
+  }, [circularCycles]);
+
+  // Pathfinding Execution
+  useEffect(() => {
+    if (pathStartNode && pathEndNode && graph) {
+      const result = findShortestPath(pathStartNode, pathEndNode, graph.edges);
+      setPathResult(result);
+    } else {
+      setPathResult(null);
+    }
+  }, [pathStartNode, pathEndNode, graph]);
 
   // Calculate project-wide statistics
   const stats = useMemo(() => {
@@ -55,7 +101,7 @@ export function ProjectExplorer({ project, onBack }: ProjectExplorerProps) {
     return { totalNodes, totalEdges, syntaxErrors, warnings, totalFiles };
   }, [graph]);
 
-  // Compute visible graph based on scopeFiles and expandedNodeIds
+  // Compute visible graph
   const visibleGraph: Graph | null = useMemo(() => {
     if (!graph || scopeFiles === null) return null;
 
@@ -81,7 +127,7 @@ export function ProjectExplorer({ project, onBack }: ProjectExplorerProps) {
     return { nodes, edges };
   }, [graph, scopeFiles, expandedNodeIds]);
 
-  // Filter visible nodes by node filter tab (classes, methods, errors, warnings)
+  // Filter visible nodes
   const renderedGraph: Graph | null = useMemo(() => {
     if (!visibleGraph) return null;
 
@@ -95,6 +141,8 @@ export function ProjectExplorer({ project, onBack }: ProjectExplorerProps) {
       nodes = nodes.filter((n) => n.data.syntax_error !== null);
     } else if (nodeFilter === 'warnings') {
       nodes = nodes.filter((n) => n.data.warnings.length > 0);
+    } else if (nodeFilter === 'cycles') {
+      nodes = nodes.filter((n) => cycleNodeIds.has(n.id));
     }
 
     if (hideUnconnected) {
@@ -106,11 +154,17 @@ export function ProjectExplorer({ project, onBack }: ProjectExplorerProps) {
       nodes = nodes.filter((n) => connectedIds.has(n.id));
     }
 
+    // Attach cycle flags
     const nodeIds = new Set(nodes.map((n) => n.id));
-    const edges = visibleGraph.edges.filter((e) => nodeIds.has(e.source) && nodeIds.has(e.target));
+    const edges: GraphEdge[] = visibleGraph.edges
+      .filter((e) => nodeIds.has(e.source) && nodeIds.has(e.target))
+      .map((e) => ({
+        ...e,
+        isInCycle: cycleNodeIds.has(e.source) && cycleNodeIds.has(e.target),
+      }));
 
     return { nodes, edges };
-  }, [visibleGraph, nodeFilter, hideUnconnected]);
+  }, [visibleGraph, nodeFilter, hideUnconnected, cycleNodeIds]);
 
   const handleNodeClick = (nodeId: string) => {
     if (!graph) return;
@@ -152,10 +206,30 @@ export function ProjectExplorer({ project, onBack }: ProjectExplorerProps) {
     }
   };
 
+  const handleFilterCycles = () => {
+    if (!graph || circularCycles.length === 0) return;
+    const cycleFiles = graph.nodes
+      .filter((n) => cycleNodeIds.has(n.id))
+      .map((n) => n.data.file_path);
+    setScopeFiles(new Set(cycleFiles));
+    setNodeFilter('cycles');
+  };
+
   const handleCopyPath = () => {
     navigator.clipboard.writeText(project.path);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
+  };
+
+  const handleSelectForPath = (nodeId: string) => {
+    if (!pathStartNode) {
+      setPathStartNode(nodeId);
+    } else if (!pathEndNode) {
+      setPathEndNode(nodeId);
+    } else {
+      setPathStartNode(nodeId);
+      setPathEndNode(null);
+    }
   };
 
   if (loading) {
@@ -172,7 +246,7 @@ export function ProjectExplorer({ project, onBack }: ProjectExplorerProps) {
     return (
       <div className="flex h-screen w-screen flex-col items-center justify-center gap-4 bg-slate-950 p-6 text-sm text-rose-400">
         <div className="rounded-2xl border border-rose-500/30 bg-rose-950/40 p-6 text-center max-w-md">
-          <div className="text-3xl mb-2">⚠️</div>
+          <SvgWarning className="h-8 w-8 text-rose-400 mx-auto mb-2" />
           <h2 className="text-base font-bold text-rose-300">Extraction Failed</h2>
           <p className="mt-1 text-xs text-slate-300">{error}</p>
           <button
@@ -192,7 +266,7 @@ export function ProjectExplorer({ project, onBack }: ProjectExplorerProps) {
 
   return (
     <div className="flex h-screen w-screen flex-col bg-slate-900 text-slate-100 overflow-hidden select-none">
-      {/* Top Main Navigation & Breadcrumbs */}
+      {/* Top Header */}
       <header className="flex shrink-0 items-center justify-between border-b border-slate-800 bg-slate-950 px-4 py-2.5 z-20">
         <div className="flex items-center gap-3">
           <button
@@ -211,11 +285,11 @@ export function ProjectExplorer({ project, onBack }: ProjectExplorerProps) {
             <button
               type="button"
               onClick={handleCopyPath}
-              className="flex items-center gap-1 truncate rounded-md bg-slate-900 px-2 py-0.5 font-mono text-[11px] text-slate-400 border border-slate-800 hover:text-slate-200"
-              title="Click to copy path"
+              className="flex items-center gap-1.5 truncate rounded-md bg-slate-900 px-2 py-0.5 font-mono text-[11px] text-slate-400 border border-slate-800 hover:text-slate-200"
+              title="Copy path"
             >
               <span className="truncate max-w-[240px]">{project.path}</span>
-              <span className="text-[10px] text-blue-400">{copied ? '✓ Copied' : '📋'}</span>
+              {copied ? <SvgCheck className="h-3 w-3 text-emerald-400" /> : <SvgCopy className="h-3 w-3" />}
             </button>
           </div>
         </div>
@@ -223,47 +297,92 @@ export function ProjectExplorer({ project, onBack }: ProjectExplorerProps) {
         {/* Global Project Metrics Badges */}
         <div className="hidden lg:flex items-center gap-2 text-xs">
           <div className="flex items-center gap-1.5 rounded-lg bg-slate-900 px-2.5 py-1 border border-slate-800 text-slate-300">
-            <span className="text-slate-500">📁</span>
+            <SvgFolder className="h-3.5 w-3.5 text-slate-400" />
             <span>{stats.totalFiles} files</span>
           </div>
 
           <div className="flex items-center gap-1.5 rounded-lg bg-slate-900 px-2.5 py-1 border border-slate-800 text-slate-300">
-            <span className="text-slate-500">🧩</span>
+            <SvgNodes className="h-3.5 w-3.5 text-blue-400" />
             <span>{stats.totalNodes} nodes</span>
           </div>
 
           <div className="flex items-center gap-1.5 rounded-lg bg-slate-900 px-2.5 py-1 border border-slate-800 text-slate-300">
-            <span className="text-slate-500">🔗</span>
+            <SvgEdge className="h-3.5 w-3.5 text-cyan-400" />
             <span>{stats.totalEdges} calls</span>
           </div>
 
+          {/* Circular Dependencies Pill */}
+          {circularCycles.length > 0 && (
+            <button
+              type="button"
+              onClick={handleFilterCycles}
+              className="flex items-center gap-1.5 rounded-lg bg-orange-500/10 px-2.5 py-1 border border-orange-500/30 text-orange-400 hover:bg-orange-500/20 transition font-medium"
+              title="Click to scope circular dependency cycles"
+            >
+              <SvgCycle className="h-3.5 w-3.5 text-orange-400" />
+              <span>{circularCycles.length} Cycles</span>
+            </button>
+          )}
+
+          {/* Syntax Errors Pill */}
           {stats.syntaxErrors > 0 && (
             <button
               type="button"
               onClick={handleFilterErrors}
               className="flex items-center gap-1.5 rounded-lg bg-rose-500/10 px-2.5 py-1 border border-rose-500/30 text-rose-400 hover:bg-rose-500/20 transition font-medium"
-              title="Click to scope broken files"
+              title="Click to scope syntax errors"
             >
-              <span>⚠️</span>
-              <span>{stats.syntaxErrors} Syntax Error{stats.syntaxErrors > 1 ? 's' : ''}</span>
+              <SvgWarning className="h-3.5 w-3.5 text-rose-400" />
+              <span>{stats.syntaxErrors} Errors</span>
             </button>
           )}
 
+          {/* Warnings Pill */}
           {stats.warnings > 0 && (
             <button
               type="button"
               onClick={handleFilterWarnings}
               className="flex items-center gap-1.5 rounded-lg bg-amber-500/10 px-2.5 py-1 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 transition font-medium"
-              title="Click to scope warning files"
+              title="Click to scope dead code warnings"
             >
-              <span>⚡</span>
+              <SvgZap className="h-3.5 w-3.5 text-amber-400" />
               <span>{stats.warnings} Dead Code</span>
             </button>
           )}
         </div>
       </header>
 
-      {/* Secondary Controls Bar: Filters, Search, and Graph Layout */}
+      {/* Pathfinding & Tracing Toolbar (when active) */}
+      {(pathStartNode || pathEndNode) && (
+        <div className="flex shrink-0 items-center justify-between border-b border-cyan-500/30 bg-cyan-950/40 px-4 py-1.5 text-xs text-cyan-200 backdrop-blur">
+          <div className="flex items-center gap-2">
+            <SvgPath className="h-4 w-4 text-cyan-400" />
+            <span className="font-bold">Pathfinder:</span>
+            <span className="rounded bg-cyan-900/60 px-2 py-0.5 font-mono text-[11px]">
+              {pathStartNode ?? 'Pick Start'} ➔ {pathEndNode ?? 'Pick End (click any node)'}
+            </span>
+            {pathResult ? (
+              <span className="text-emerald-400 font-semibold">
+                ✓ Found {pathResult.nodeIds.length} hops!
+              </span>
+            ) : pathStartNode && pathEndNode ? (
+              <span className="text-rose-400">✕ No direct call path</span>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setPathStartNode(null);
+              setPathEndNode(null);
+            }}
+            className="rounded bg-cyan-900/80 px-2 py-0.5 text-xs hover:bg-cyan-800"
+          >
+            Clear Path
+          </button>
+        </div>
+      )}
+
+      {/* Secondary Controls Bar */}
       <div className="flex shrink-0 items-center justify-between border-b border-slate-800/80 bg-slate-950/60 px-4 py-2 text-xs">
         {/* Node Category Tabs */}
         <div className="flex items-center gap-1">
@@ -272,8 +391,9 @@ export function ProjectExplorer({ project, onBack }: ProjectExplorerProps) {
               { id: 'all', label: 'All Nodes' },
               { id: 'classes', label: 'Classes' },
               { id: 'methods', label: 'Methods' },
-              { id: 'errors', label: 'Errors ⚠️' },
-              { id: 'warnings', label: 'Dead Code ⚡' },
+              { id: 'cycles', label: 'Cycles' },
+              { id: 'errors', label: 'Errors' },
+              { id: 'warnings', label: 'Dead Code' },
             ] as const
           ).map((tab) => (
             <button
@@ -291,16 +411,18 @@ export function ProjectExplorer({ project, onBack }: ProjectExplorerProps) {
           ))}
         </div>
 
-        {/* Search inside Graph & Layout Direction Switcher */}
+        {/* Search, Layout, & Unconnected Filter */}
         <div className="flex items-center gap-3">
-          {/* Quick Node Search */}
           <div className="relative">
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2.5 text-slate-500">
+              <SvgSearch className="h-3.5 w-3.5" />
+            </div>
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search in graph (e.g. login)..."
-              className="w-48 rounded-lg border border-slate-800 bg-slate-900 px-2.5 py-1 text-xs text-white placeholder:text-slate-500 focus:border-blue-500 focus:outline-none"
+              placeholder="Search graph..."
+              className="w-48 rounded-lg border border-slate-800 bg-slate-900 pl-7 pr-6 py-1 text-xs text-white placeholder:text-slate-500 focus:border-blue-500 focus:outline-none"
             />
             {searchQuery && (
               <button
@@ -313,7 +435,6 @@ export function ProjectExplorer({ project, onBack }: ProjectExplorerProps) {
             )}
           </div>
 
-          {/* Hide Unconnected Checkbox */}
           <label className="flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer">
             <input
               type="checkbox"
@@ -332,7 +453,7 @@ export function ProjectExplorer({ project, onBack }: ProjectExplorerProps) {
               className={`rounded px-2 py-0.5 text-[11px] font-medium transition ${
                 direction === 'TB' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'
               }`}
-              title="Top to Bottom Layout"
+              title="Top to Bottom"
             >
               ⬇ TB
             </button>
@@ -342,13 +463,12 @@ export function ProjectExplorer({ project, onBack }: ProjectExplorerProps) {
               className={`rounded px-2 py-0.5 text-[11px] font-medium transition ${
                 direction === 'LR' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'
               }`}
-              title="Left to Right Layout"
+              title="Left to Right"
             >
               ➔ LR
             </button>
           </div>
 
-          {/* Reset Expanded Connections */}
           {expandedNodeIds.size > 0 && (
             <button
               type="button"
@@ -361,7 +481,7 @@ export function ProjectExplorer({ project, onBack }: ProjectExplorerProps) {
         </div>
       </div>
 
-      {/* Main Workspace: Left Scope Tree + Right Interactive Canvas */}
+      {/* Main Workspace */}
       <div className="flex min-h-0 flex-1">
         <div className="w-72 shrink-0 border-r border-slate-800 bg-slate-950">
           <ScopePicker
@@ -374,7 +494,7 @@ export function ProjectExplorer({ project, onBack }: ProjectExplorerProps) {
         <div className="relative flex-1 bg-slate-900">
           {visibleGraph.nodes.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center p-8 text-center">
-              <div className="text-3xl mb-2">📁</div>
+              <SvgFolder className="h-10 w-10 text-slate-600 mb-2" />
               <h3 className="text-sm font-bold text-white">No Files Selected in Scope</h3>
               <p className="mt-1 text-xs text-slate-400 max-w-sm">
                 Pick specific PHP files from the left tree explorer to render their class nodes and method relationships.
@@ -389,7 +509,7 @@ export function ProjectExplorer({ project, onBack }: ProjectExplorerProps) {
             </div>
           ) : renderedGraph.nodes.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center p-8 text-center">
-              <div className="text-3xl mb-2">🔍</div>
+              <SvgSearch className="h-10 w-10 text-slate-600 mb-2" />
               <h3 className="text-sm font-bold text-white">No Matching Nodes in Current Filter</h3>
               <p className="mt-1 text-xs text-slate-400 max-w-sm">
                 Nodes exist in scope, but are filtered out by "{nodeFilter}" or "Hide unconnected".
@@ -408,9 +528,14 @@ export function ProjectExplorer({ project, onBack }: ProjectExplorerProps) {
           ) : (
             <GraphCanvas
               graph={renderedGraph}
+              projectId={project.id}
               direction={direction}
               searchQuery={searchQuery}
+              cycleNodeIds={cycleNodeIds}
+              pathNodeIds={pathResult ? new Set(pathResult.nodeIds) : new Set()}
+              pathEdgeIds={pathResult ? new Set(pathResult.edgeIds) : new Set()}
               onNodeClick={handleNodeClick}
+              onSelectForPath={handleSelectForPath}
             />
           )}
         </div>

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { collectFiles, filterTree, type FileTreeNode } from '../lib/fileTree';
+import { SvgFolder, SvgFile, SvgSearch } from './Icons';
 
 interface ScopePickerProps {
   tree: FileTreeNode;
@@ -18,7 +19,7 @@ export function ScopePicker({ tree, activeFiles, onSelect }: ScopePickerProps) {
   return (
     <div className="flex h-full flex-col bg-slate-950 text-slate-200 text-xs border-r border-slate-800">
       {/* Top Header & Search */}
-      <div className="shrink-0 p-3 border-b border-slate-800/80 space-y-2.5">
+      <div className="shrink-0 p-3.5 border-b border-slate-800/80 space-y-2.5">
         <div className="flex items-center justify-between">
           <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
             Files & Scope
@@ -29,18 +30,21 @@ export function ScopePicker({ tree, activeFiles, onSelect }: ScopePickerProps) {
         </div>
 
         <div className="relative">
+          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2.5 text-slate-500">
+            <SvgSearch className="h-3.5 w-3.5" />
+          </div>
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Filter files..."
-            className="w-full rounded-lg border border-slate-800 bg-slate-900 px-2.5 py-1.5 text-xs text-white placeholder:text-slate-500 focus:border-blue-500 focus:outline-none"
+            className="w-full rounded-xl border border-slate-800 bg-slate-900 pl-8 pr-7 py-1.5 text-xs text-white placeholder:text-slate-500 focus:border-blue-500 focus:outline-none"
           />
           {query && (
             <button
               type="button"
               onClick={() => setQuery('')}
-              className="absolute right-2 top-1.5 text-slate-500 hover:text-slate-300"
+              className="absolute right-2.5 top-2 text-slate-500 hover:text-slate-300"
             >
               ✕
             </button>
@@ -48,13 +52,13 @@ export function ScopePicker({ tree, activeFiles, onSelect }: ScopePickerProps) {
         </div>
 
         {/* Quick Batch Actions */}
-        <div className="flex items-center gap-1.5 pt-1">
+        <div className="flex items-center gap-1.5 pt-0.5">
           <button
             type="button"
             onClick={() => onSelect(allFiles)}
-            className={`flex-1 rounded-md px-2 py-1 text-center font-medium transition ${
+            className={`flex-1 rounded-lg px-2.5 py-1 text-center font-medium transition ${
               allSelected
-                ? 'bg-blue-600/30 text-blue-300 border border-blue-500/30'
+                ? 'bg-blue-600/30 text-blue-300 border border-blue-500/30 font-semibold'
                 : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-200'
             }`}
           >
@@ -63,7 +67,7 @@ export function ScopePicker({ tree, activeFiles, onSelect }: ScopePickerProps) {
           <button
             type="button"
             onClick={() => onSelect([])}
-            className="rounded-md bg-slate-900 px-2 py-1 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+            className="rounded-lg bg-slate-900 px-2.5 py-1 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
             title="Deselect all files"
           >
             Clear
@@ -114,15 +118,15 @@ function TreeItem({ node, depth, activeFiles, onSelect, forceOpen }: TreeItemPro
         type="button"
         style={indent}
         onClick={() => onSelect([node.path])}
-        className={`flex w-full items-center justify-between rounded-md py-1 px-1.5 text-left transition ${
+        className={`flex w-full items-center justify-between rounded-lg py-1 px-2 text-left transition ${
           isActive
             ? 'bg-blue-600/20 text-blue-300 font-semibold border border-blue-500/30'
             : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
         }`}
         title={node.path}
       >
-        <span className="truncate flex items-center gap-1">
-          <span className="text-slate-500 text-[10px]">📄</span>
+        <span className="truncate flex items-center gap-1.5">
+          <SvgFile className="h-3.5 w-3.5 shrink-0 text-slate-500" />
           <span>{node.name}</span>
         </span>
         {isActive && <span className="h-1.5 w-1.5 rounded-full bg-blue-400 shrink-0" />}
@@ -137,15 +141,15 @@ function TreeItem({ node, depth, activeFiles, onSelect, forceOpen }: TreeItemPro
     <div>
       <div
         style={indent}
-        className={`flex w-full items-center justify-between rounded-md py-1 pr-1.5 transition ${
-          isActive ? 'bg-slate-900/80 text-blue-300 font-medium' : 'text-slate-300 hover:bg-slate-900'
+        className={`flex w-full items-center justify-between rounded-lg py-1 pr-2 transition ${
+          isActive ? 'bg-slate-900 text-blue-300 font-medium' : 'text-slate-300 hover:bg-slate-900'
         }`}
       >
         <div className="flex items-center gap-1 truncate">
           <button
             type="button"
             onClick={() => setOpenState((o) => !o)}
-            className="w-4 shrink-0 text-slate-500 hover:text-slate-300 text-center"
+            className="w-4 shrink-0 text-slate-500 hover:text-slate-300 text-center font-mono"
             aria-label={open ? 'Collapse' : 'Expand'}
           >
             {open ? '▾' : '▸'}
@@ -153,9 +157,9 @@ function TreeItem({ node, depth, activeFiles, onSelect, forceOpen }: TreeItemPro
           <button
             type="button"
             onClick={() => onSelect(descendantFiles)}
-            className="truncate text-left flex items-center gap-1"
+            className="truncate text-left flex items-center gap-1.5"
           >
-            <span className="text-slate-500 text-[10px]">📁</span>
+            <SvgFolder className="h-3.5 w-3.5 shrink-0 text-amber-500/80" />
             <span>{node.name}/</span>
           </button>
         </div>

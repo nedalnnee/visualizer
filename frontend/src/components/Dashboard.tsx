@@ -1,6 +1,15 @@
 import { useState, useMemo, type FormEvent } from 'react';
 import { useProjects } from '../hooks/useProjects';
 import { LoadingScreen } from './LoadingScreen';
+import {
+  SvgElephpant,
+  SvgFolder,
+  SvgSearch,
+  SvgSparkles,
+  SvgTrash,
+  SvgRefresh,
+  SvgWarning,
+} from './Icons';
 import type { Project } from '../types/api';
 
 interface DashboardProps {
@@ -52,7 +61,6 @@ export function Dashboard({ onSelect }: DashboardProps) {
 
   const handleUseSampleFixture = () => {
     setName('Sample Fixture');
-    // Normalize path based on default location
     setPath('backend/tests/fixtures/sample');
     setIsFormOpen(true);
   };
@@ -69,7 +77,6 @@ export function Dashboard({ onSelect }: DashboardProps) {
     }
   };
 
-  // Full Screen Loading State
   if (loading && projects.length === 0 && !error) {
     return (
       <LoadingScreen
@@ -97,7 +104,7 @@ export function Dashboard({ onSelect }: DashboardProps) {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 font-bold text-white shadow-lg shadow-blue-500/20">
-              <span className="text-lg">🐘</span>
+              <SvgElephpant className="h-6 w-6 text-white" />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -119,9 +126,10 @@ export function Dashboard({ onSelect }: DashboardProps) {
                 <button
                   type="button"
                   onClick={reload}
-                  className="ml-1 underline hover:text-rose-300 font-medium"
+                  className="ml-1 flex items-center gap-1 underline hover:text-rose-300 font-medium"
                 >
-                  Retry
+                  <SvgRefresh className="h-3 w-3" />
+                  <span>Retry</span>
                 </button>
               </div>
             ) : (
@@ -147,7 +155,9 @@ export function Dashboard({ onSelect }: DashboardProps) {
         {error && (
           <div className="mb-8 rounded-2xl border border-rose-500/30 bg-rose-950/40 p-6 shadow-xl backdrop-blur-md">
             <div className="flex items-start gap-4">
-              <div className="rounded-xl bg-rose-500/20 p-2 text-rose-400 text-xl">⚠️</div>
+              <div className="rounded-xl bg-rose-500/20 p-2 text-rose-400">
+                <SvgWarning className="h-6 w-6" />
+              </div>
               <div className="flex-1">
                 <h2 className="text-sm font-semibold text-rose-300">Cannot Connect to Backend Server</h2>
                 <p className="mt-1 text-xs text-slate-300 leading-relaxed">
@@ -164,9 +174,10 @@ export function Dashboard({ onSelect }: DashboardProps) {
                   <button
                     type="button"
                     onClick={reload}
-                    className="ml-auto rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-500 transition"
+                    className="ml-auto flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-500 transition"
                   >
-                    🔄 Retry Connection
+                    <SvgRefresh className="h-3.5 w-3.5" />
+                    <span>Retry Connection</span>
                   </button>
                 </div>
               </div>
@@ -174,7 +185,7 @@ export function Dashboard({ onSelect }: DashboardProps) {
           </div>
         )}
 
-        {/* Add Project Form (Collapsible / Modal Card) */}
+        {/* Add Project Form */}
         {isFormOpen && (
           <section className="mb-8 animate-in fade-in slide-in-from-top-4 duration-200 rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-2xl backdrop-blur-xl">
             <div className="mb-4 flex items-center justify-between border-b border-slate-800 pb-3">
@@ -185,9 +196,10 @@ export function Dashboard({ onSelect }: DashboardProps) {
               <button
                 type="button"
                 onClick={handleUseSampleFixture}
-                className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-1 text-xs font-medium text-blue-400 hover:bg-blue-500/20 transition"
+                className="flex items-center gap-1.5 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-1 text-xs font-medium text-blue-400 hover:bg-blue-500/20 transition"
               >
-                ✨ Quick Fill: Sample Fixture
+                <SvgSparkles className="h-3.5 w-3.5" />
+                <span>Quick Fill: Sample Fixture</span>
               </button>
             </div>
 
@@ -204,11 +216,11 @@ export function Dashboard({ onSelect }: DashboardProps) {
                   />
                 </div>
                 <div className="space-y-1.5 sm:col-span-2">
-                  <label className="text-xs font-medium text-slate-300">PHP Directory Path (Absolute or Relative)</label>
+                  <label className="text-xs font-medium text-slate-300">PHP Directory Path</label>
                   <input
                     value={path}
                     onChange={(e) => setPath(e.target.value)}
-                    placeholder="e.g. C:\Users\dell\Desktop\my-php-project or backend/tests/fixtures/sample"
+                    placeholder="e.g. C:\Users\dell\Desktop\my-project or backend/tests/fixtures/sample"
                     className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2 font-mono text-xs text-white placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                     required
                   />
@@ -253,12 +265,15 @@ export function Dashboard({ onSelect }: DashboardProps) {
           <div className="flex flex-wrap items-center gap-3">
             {/* Search Input */}
             <div className="relative">
+              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
+                <SvgSearch className="h-3.5 w-3.5" />
+              </div>
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search projects..."
-                className="w-56 rounded-xl border border-slate-800 bg-slate-900/90 px-3.5 py-1.5 text-xs text-white placeholder:text-slate-500 focus:border-blue-500 focus:outline-none"
+                className="w-56 rounded-xl border border-slate-800 bg-slate-900/90 pl-8 pr-7 py-1.5 text-xs text-white placeholder:text-slate-500 focus:border-blue-500 focus:outline-none"
               />
               {searchQuery && (
                 <button
@@ -292,7 +307,7 @@ export function Dashboard({ onSelect }: DashboardProps) {
                 }`}
                 title="Grid View"
               >
-                ⊞ Grid
+                Grid
               </button>
               <button
                 type="button"
@@ -302,13 +317,13 @@ export function Dashboard({ onSelect }: DashboardProps) {
                 }`}
                 title="List View"
               >
-                ☰ List
+                List
               </button>
             </div>
           </div>
         </div>
 
-        {/* Project Cards Grid / List State */}
+        {/* Project Cards Grid View */}
         {filteredProjects.length > 0 && viewMode === 'grid' && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {filteredProjects.map((project) => (
@@ -317,12 +332,11 @@ export function Dashboard({ onSelect }: DashboardProps) {
                 onClick={() => onSelect(project)}
                 className="group relative flex cursor-pointer flex-col justify-between rounded-2xl border border-slate-800/80 bg-slate-900/60 p-5 shadow-lg backdrop-blur transition-all duration-200 hover:-translate-y-1 hover:border-blue-500/50 hover:bg-slate-900/90 hover:shadow-2xl hover:shadow-blue-500/10"
               >
-                {/* Top Card Info */}
                 <div>
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-2.5">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/10 text-blue-400 group-hover:bg-blue-600 group-hover:text-white transition duration-200 font-mono text-xs font-bold">
-                        PHP
+                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/10 text-blue-400 group-hover:bg-blue-600 group-hover:text-white transition duration-200">
+                        <SvgFolder className="h-4 w-4" />
                       </div>
                       <h3 className="font-bold text-sm text-white group-hover:text-blue-300 transition">
                         {project.name}
@@ -336,7 +350,7 @@ export function Dashboard({ onSelect }: DashboardProps) {
                       className="rounded-lg p-1.5 text-slate-500 opacity-0 group-hover:opacity-100 hover:bg-rose-500/20 hover:text-rose-400 transition"
                       title="Remove project"
                     >
-                      🗑️
+                      <SvgTrash className="h-4 w-4" />
                     </button>
                   </div>
 
@@ -345,7 +359,6 @@ export function Dashboard({ onSelect }: DashboardProps) {
                   </p>
                 </div>
 
-                {/* Bottom Card Action */}
                 <div className="mt-5 flex items-center justify-between border-t border-slate-800/60 pt-3.5 text-xs">
                   <span className="text-[11px] text-slate-400">
                     {project.created_at ? new Date(project.created_at).toLocaleDateString() : 'Active'}
@@ -359,6 +372,7 @@ export function Dashboard({ onSelect }: DashboardProps) {
           </div>
         )}
 
+        {/* Project Table List View */}
         {filteredProjects.length > 0 && viewMode === 'list' && (
           <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/70 shadow-lg backdrop-blur">
             <table className="w-full text-left text-xs">
@@ -377,7 +391,10 @@ export function Dashboard({ onSelect }: DashboardProps) {
                     onClick={() => onSelect(project)}
                     className="cursor-pointer hover:bg-slate-800/40 transition"
                   >
-                    <td className="px-5 py-4 font-bold text-white">{project.name}</td>
+                    <td className="px-5 py-4 font-bold text-white flex items-center gap-2">
+                      <SvgFolder className="h-4 w-4 text-blue-400" />
+                      <span>{project.name}</span>
+                    </td>
                     <td className="px-5 py-4 font-mono text-slate-400">{project.path}</td>
                     <td className="px-5 py-4 text-slate-400">
                       {project.created_at ? new Date(project.created_at).toLocaleDateString() : '—'}
@@ -394,10 +411,10 @@ export function Dashboard({ onSelect }: DashboardProps) {
                         <button
                           type="button"
                           onClick={(e) => handleDelete(e, project.id, project.name)}
-                          className="rounded-lg border border-slate-700 p-1 text-slate-400 hover:border-rose-500 hover:text-rose-400"
+                          className="rounded-lg border border-slate-700 p-1.5 text-slate-400 hover:border-rose-500 hover:text-rose-400"
                           title="Delete project"
                         >
-                          🗑️
+                          <SvgTrash className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     </td>
@@ -408,11 +425,11 @@ export function Dashboard({ onSelect }: DashboardProps) {
           </div>
         )}
 
-        {/* Empty State when no projects exist */}
+        {/* Empty State */}
         {!loading && !error && projects.length === 0 && (
           <div className="my-10 flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-800 bg-slate-900/40 p-12 text-center backdrop-blur">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-500/10 text-3xl text-blue-400 shadow-inner">
-              🐘
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-500/10 text-blue-400 shadow-inner">
+              <SvgElephpant className="h-8 w-8 text-blue-400" />
             </div>
             <h3 className="mt-4 text-base font-bold text-white">No PHP Codebases Registered Yet</h3>
             <p className="mt-1 max-w-md text-xs text-slate-400 leading-relaxed">
@@ -422,9 +439,10 @@ export function Dashboard({ onSelect }: DashboardProps) {
               <button
                 type="button"
                 onClick={handleUseSampleFixture}
-                className="rounded-xl border border-blue-500/40 bg-blue-500/10 px-4 py-2 text-xs font-semibold text-blue-300 hover:bg-blue-500/20 transition"
+                className="flex items-center gap-1.5 rounded-xl border border-blue-500/40 bg-blue-500/10 px-4 py-2 text-xs font-semibold text-blue-300 hover:bg-blue-500/20 transition"
               >
-                ✨ Load Sample Fixture
+                <SvgSparkles className="h-4 w-4" />
+                <span>Load Sample Fixture</span>
               </button>
               <button
                 type="button"
@@ -434,20 +452,6 @@ export function Dashboard({ onSelect }: DashboardProps) {
                 + Register PHP Folder
               </button>
             </div>
-          </div>
-        )}
-
-        {/* Search Empty State */}
-        {projects.length > 0 && filteredProjects.length === 0 && (
-          <div className="my-10 rounded-2xl border border-slate-800 bg-slate-900/40 p-8 text-center text-xs text-slate-400">
-            No projects matched your search <strong className="text-white">"{searchQuery}"</strong>.
-            <button
-              type="button"
-              onClick={() => setSearchQuery('')}
-              className="ml-2 text-blue-400 underline hover:text-blue-300"
-            >
-              Clear filter
-            </button>
           </div>
         )}
       </main>

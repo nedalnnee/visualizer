@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { SvgElephpant, SvgVolume, SvgVolumeMute, SvgZap, SvgSparkles } from './Icons';
 
 interface LoadingScreenProps {
   title?: string;
@@ -7,7 +8,7 @@ interface LoadingScreenProps {
   onCancel?: () => void;
 }
 
-// Sound effects generator via Web Audio API (zero external assets)
+// Sound effects generator via Web Audio API
 class RetroAudio {
   private ctx: AudioContext | null = null;
   public enabled = true;
@@ -43,8 +44,8 @@ class RetroAudio {
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(587.33, this.ctx.currentTime); // D5
-    osc.frequency.setValueAtTime(880, this.ctx.currentTime + 0.06); // A5
+    osc.frequency.setValueAtTime(587.33, this.ctx.currentTime);
+    osc.frequency.setValueAtTime(880, this.ctx.currentTime + 0.06);
     gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.15);
     osc.connect(gain);
@@ -95,22 +96,22 @@ class RetroAudio {
 const audio = new RetroAudio();
 
 const DEV_MEMES = [
-  '🐘 The ElePHPant is organizing class nodes into neat boxes…',
-  '🔍 Searching for missing Paamayim Nekudotayim (::)…',
-  '☕ PHP 8.4 JIT compiler is warming up the AST…',
-  '⚡ Resolving cyclic dependencies before the universe collapses…',
-  '🛡️ PHPStan is inspecting every method call with strict typing…',
-  '✨ Converting thousands of lines into a crystal clear DAG…',
-  '🚀 Dagre layout engine calculating node vectors and gravity…',
-  '🪄 Turning spaghetti PHP into an interactive galaxy…',
+  'The ElePHPant is organizing class nodes into neat boxes…',
+  'Searching for missing Paamayim Nekudotayim (::)…',
+  'PHP 8.4 JIT compiler is warming up the AST…',
+  'Resolving cyclic dependencies before the universe collapses…',
+  'PHPStan is inspecting every method call with strict typing…',
+  'Converting thousands of lines into a crystal clear DAG…',
+  'Dagre layout engine calculating node vectors and gravity…',
+  'Turning complex PHP code into an interactive galaxy…',
 ];
 
 const PHP_TRIVIA = [
-  '💡 Paamayim Nekudotayim (פעמיים נקודתיים) means "twice colon" in Hebrew (::)!',
-  '💡 PHP was originally named "Personal Home Page Tools" when Rasmus Lerdorf created it in 1994.',
-  '💡 Over 75% of the top 10 million websites still rely on PHP in some form!',
-  '💡 Nikic (Nikita Popov) rewrote the PHP compiler AST in PHP 7 and created the nikic/php-parser library we use!',
-  '💡 PHP 8.0 introduced JIT (Just-In-Time) compilation and Union Types.',
+  'Paamayim Nekudotayim (פעמיים נקودתיים) means "twice colon" in Hebrew (::)!',
+  'PHP was originally named "Personal Home Page Tools" when Rasmus Lerdorf created it in 1994.',
+  'Over 75% of the top 10 million websites still rely on PHP in some form!',
+  'Nikic (Nikita Popov) rewrote the PHP compiler AST in PHP 7 and created the nikic/php-parser library we use!',
+  'PHP 8.0 introduced JIT (Just-In-Time) compilation and Union Types.',
 ];
 
 interface Particle {
@@ -158,8 +159,7 @@ export function LoadingScreen({
   ],
   onCancel,
 }: LoadingScreenProps) {
-  // Mode: 'game' (ElePHPant Defender) or 'zen' (Constellation Galaxy)
-  const [activeTab, setActiveTab] = useState<'game' | 'zen' | 'terminal'>('game');
+  const [activeTab, setActiveTab] = useState<'game' | 'terminal'>('game');
   const [sound, setSound] = useState(true);
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(() => {
@@ -186,12 +186,10 @@ export function LoadingScreen({
   const particlesRef = useRef<Particle[]>([]);
   const nextTargetId = useRef(1);
 
-  // Sync sound preference
   useEffect(() => {
     audio.enabled = sound;
   }, [sound]);
 
-  // Rotate fun memes and progress steps
   useEffect(() => {
     const memeTimer = setInterval(() => {
       setMemeIdx((prev) => (prev + 1) % DEV_MEMES.length);
@@ -214,7 +212,6 @@ export function LoadingScreen({
     };
   }, [estimatedSteps]);
 
-  // Spawn game entities
   const spawnTarget = useCallback((w: number, h: number) => {
     const types: ('bug' | 'token' | 'class')[] = ['bug', 'token', 'class', 'bug'];
     const type = types[Math.floor(Math.random() * types.length)];
@@ -227,7 +224,7 @@ export function LoadingScreen({
     let radius = 22;
 
     if (type === 'bug') {
-      const bugs = ['🐛 SyntaxError', '🐛 UndefinedFn', '🐛 Missing ;', '🐛 $this->null'];
+      const bugs = ['SyntaxError', 'UndefinedFn', 'Missing ;', '$this->null'];
       label = bugs[Math.floor(Math.random() * bugs.length)];
       color = '#ef4444';
       hp = 2;
@@ -266,7 +263,6 @@ export function LoadingScreen({
       y = Math.random() * h;
     }
 
-    // Velocity towards center
     const targetX = w / 2 + (Math.random() - 0.5) * 200;
     const targetY = h / 2 + (Math.random() - 0.5) * 150;
     const angle = Math.atan2(targetY - y, targetX - x);
@@ -288,7 +284,6 @@ export function LoadingScreen({
     });
   }, []);
 
-  // Main Canvas Render & Physics Loop
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -314,7 +309,7 @@ export function LoadingScreen({
 
       ctx.clearRect(0, 0, w, h);
 
-      // 1. Draw subtle digital background grid
+      // Grid
       ctx.strokeStyle = 'rgba(226, 232, 240, 0.6)';
       ctx.lineWidth = 1;
       const gridSize = 32;
@@ -331,25 +326,21 @@ export function LoadingScreen({
         ctx.stroke();
       }
 
-      // 2. Spawn entities if needed
       if (timestamp - lastSpawn > 1100 && targetsRef.current.length < 8) {
         spawnTarget(w, h);
         lastSpawn = timestamp;
       }
 
-      // 3. Smooth Player (ElePHPant ship) tracking towards mouse
       const player = playerRef.current;
       player.x += (player.targetX - player.x) * 0.12;
       player.y += (player.targetY - player.y) * 0.12;
-      player.angle = Math.atan2(player.targetY - player.y, player.targetX - player.x);
 
-      // 4. Update & Draw Lasers
+      // Lasers
       for (let i = lasersRef.current.length - 1; i >= 0; i--) {
         const laser = lasersRef.current[i];
         laser.x += laser.vx;
         laser.y += laser.vy;
 
-        // Draw laser beam
         ctx.save();
         ctx.strokeStyle = '#38bdf8';
         ctx.shadowColor = '#0284c7';
@@ -361,14 +352,12 @@ export function LoadingScreen({
         ctx.stroke();
         ctx.restore();
 
-        // Check collision with targets
         for (let j = targetsRef.current.length - 1; j >= 0; j--) {
           const target = targetsRef.current[j];
           const dist = Math.hypot(laser.x - target.x, laser.y - target.y);
 
           if (dist < target.radius + 6) {
             target.hp -= 1;
-            // Spawn hit sparks
             for (let p = 0; p < 5; p++) {
               particlesRef.current.push({
                 x: target.x,
@@ -381,11 +370,9 @@ export function LoadingScreen({
               });
             }
 
-            // Remove laser
             lasersRef.current.splice(i, 1);
 
             if (target.hp <= 0) {
-              // Target destroyed!
               const earned = target.points * combo;
               setScore((s) => {
                 const newScore = s + earned;
@@ -405,7 +392,6 @@ export function LoadingScreen({
               if (target.type === 'bug') audio.playExplode();
               else audio.playCollect();
 
-              // Big explosion particle burst
               for (let p = 0; p < 12; p++) {
                 particlesRef.current.push({
                   x: target.x,
@@ -418,7 +404,6 @@ export function LoadingScreen({
                 });
               }
 
-              // Text banner spark
               particlesRef.current.push({
                 x: target.x,
                 y: target.y - 15,
@@ -436,18 +421,16 @@ export function LoadingScreen({
           }
         }
 
-        // Out of bounds cleanup
         if (laser.x < 0 || laser.x > w || laser.y < 0 || laser.y > h) {
           lasersRef.current.splice(i, 1);
         }
       }
 
-      // 5. Update & Draw Target Entities
+      // Targets
       targetsRef.current.forEach((t) => {
         t.x += t.vx;
         t.y += t.vy;
 
-        // Bounce gently inside boundary or wrap
         if (t.x < t.radius) {
           t.x = t.radius;
           t.vx *= -1;
@@ -465,9 +448,8 @@ export function LoadingScreen({
           t.vy *= -1;
         }
 
-        // Draw Target Capsule
         ctx.save();
-        ctx.font = '11px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
+        ctx.font = '11px ui-monospace, monospace';
         const txtWidth = ctx.measureText(t.label).width;
         const boxW = Math.max(txtWidth + 20, 50);
         const boxH = 26;
@@ -490,7 +472,6 @@ export function LoadingScreen({
         ctx.textBaseline = 'middle';
         ctx.fillText(t.label, t.x, t.y);
 
-        // HP bar if tough
         if (t.maxHp > 1) {
           ctx.fillStyle = '#e2e8f0';
           ctx.fillRect(t.x - 16, t.y + boxH / 2 + 3, 32, 3);
@@ -501,18 +482,16 @@ export function LoadingScreen({
         ctx.restore();
       });
 
-      // 6. Draw Player (ElePHPant Hero)
+      // Player
       ctx.save();
       ctx.translate(player.x, player.y);
 
-      // Pulsing aura ring
       ctx.beginPath();
       ctx.arc(0, 0, 24 + Math.sin(timestamp * 0.006) * 3, 0, Math.PI * 2);
       ctx.strokeStyle = 'rgba(59, 130, 246, 0.3)';
       ctx.lineWidth = 2;
       ctx.stroke();
 
-      // ElePHPant icon & core
       ctx.fillStyle = '#1e293b';
       ctx.beginPath();
       ctx.arc(0, 0, 18, 0, Math.PI * 2);
@@ -521,14 +500,15 @@ export function LoadingScreen({
       ctx.lineWidth = 2;
       ctx.stroke();
 
-      ctx.font = '16px sans-serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '14px ui-monospace, monospace';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText('🐘', 0, 1);
 
       ctx.restore();
 
-      // 7. Update & Draw Particles
+      // Particles
       for (let p = particlesRef.current.length - 1; p >= 0; p--) {
         const pt = particlesRef.current[p];
         pt.x += pt.vx;
@@ -566,7 +546,6 @@ export function LoadingScreen({
     };
   }, [spawnTarget, combo]);
 
-  // Handle Mouse / Touch Movement
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -575,7 +554,6 @@ export function LoadingScreen({
     playerRef.current.targetY = e.clientY - rect.top;
   };
 
-  // Shoot laser on click / space
   const fireLaser = (targetX?: number, targetY?: number) => {
     const player = playerRef.current;
     const destX = targetX ?? player.targetX;
@@ -621,15 +599,13 @@ export function LoadingScreen({
 
   return (
     <div className="relative flex min-h-screen w-screen flex-col items-center justify-between overflow-hidden bg-slate-950 p-4 sm:p-6 text-slate-100 select-none">
-      {/* Background ambient gradient glow */}
       <div className="pointer-events-none absolute -top-40 left-1/2 -translate-x-1/2 h-96 w-[700px] rounded-full bg-blue-600/15 blur-[120px]" />
       <div className="pointer-events-none absolute -bottom-40 left-1/2 -translate-x-1/2 h-96 w-[700px] rounded-full bg-indigo-600/15 blur-[120px]" />
 
-      {/* Top Header Bar */}
       <header className="relative z-10 flex w-full max-w-4xl items-center justify-between border-b border-slate-800/80 pb-3">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 to-cyan-500 font-bold text-white shadow-lg shadow-blue-500/20">
-            <span className="text-base">🐘</span>
+            <SvgElephpant className="h-6 w-6 text-white" />
           </div>
           <div>
             <div className="flex items-center gap-2">
@@ -643,9 +619,7 @@ export function LoadingScreen({
           </div>
         </div>
 
-        {/* Action controls / Stats */}
         <div className="flex items-center gap-2.5">
-          {/* Arcade Score Pill */}
           <div className="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/90 px-3 py-1.5 text-xs shadow-inner">
             <span className="text-slate-400 font-mono">SCORE:</span>
             <span className="font-mono font-bold text-cyan-400">{score.toLocaleString()}</span>
@@ -661,14 +635,13 @@ export function LoadingScreen({
             )}
           </div>
 
-          {/* Sound Toggle */}
           <button
             type="button"
             onClick={() => setSound(!sound)}
             className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-800 bg-slate-900 text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition"
-            title={sound ? 'Mute audio FX' : 'Enable 8-bit sound effects'}
+            title={sound ? 'Mute sound' : 'Enable sound'}
           >
-            {sound ? '🔊' : '🔇'}
+            {sound ? <SvgVolume className="h-4 w-4" /> : <SvgVolumeMute className="h-4 w-4" />}
           </button>
 
           {onCancel && (
@@ -683,9 +656,7 @@ export function LoadingScreen({
         </div>
       </header>
 
-      {/* Center Interactive Sandbox Area */}
       <main className="relative z-10 my-3 flex w-full max-w-4xl flex-col rounded-2xl border border-slate-800/80 bg-slate-900/70 shadow-2xl backdrop-blur-xl overflow-hidden">
-        {/* Navigation Mode Tabs */}
         <div className="flex items-center justify-between border-b border-slate-800/80 px-4 py-2 bg-slate-950/40">
           <div className="flex items-center gap-1.5">
             <button
@@ -697,7 +668,7 @@ export function LoadingScreen({
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              🎮 ElePHPant Bug Blaster
+              ElePHPant Blaster
             </button>
             <button
               type="button"
@@ -708,27 +679,27 @@ export function LoadingScreen({
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              📟 Live AST Terminal
+              Live Terminal
             </button>
           </div>
 
           {activeTab === 'game' && (
             <div className="flex items-center gap-2">
               <span className="text-[11px] text-slate-400 hidden sm:inline">
-                Move mouse & click to shoot PHP bugs!
+                Click to shoot syntax errors!
               </span>
               <button
                 type="button"
                 onClick={triggerPowerUp}
-                className="rounded-md border border-indigo-500/40 bg-indigo-500/20 px-2.5 py-0.5 text-xs font-bold text-indigo-300 hover:bg-indigo-500/30 transition active:scale-95"
+                className="flex items-center gap-1 rounded-md border border-indigo-500/40 bg-indigo-500/20 px-2.5 py-0.5 text-xs font-bold text-indigo-300 hover:bg-indigo-500/30 transition active:scale-95"
               >
-                ⚡ Nova Blast
+                <SvgZap className="h-3.5 w-3.5 text-indigo-300" />
+                <span>Nova Blast</span>
               </button>
             </div>
           )}
         </div>
 
-        {/* Active View Body */}
         {activeTab === 'game' ? (
           <div className="relative h-[340px] w-full cursor-crosshair">
             <canvas
@@ -757,15 +728,13 @@ export function LoadingScreen({
             </div>
 
             <div className="rounded border border-slate-800 bg-slate-900/60 p-2.5 text-[11px] text-slate-400">
-              ⚡ <strong className="text-slate-200">Engine Tip:</strong> Dagre auto-layout runs client-side so your graph coordinates adapt smoothly to screen resolution.
+              <strong className="text-slate-200">Engine Tip:</strong> Dagre auto-layout runs client-side so your graph coordinates adapt smoothly to screen resolution.
             </div>
           </div>
         )}
       </main>
 
-      {/* Bottom Footer: Stepper & Trivia Carousel */}
       <footer className="relative z-10 w-full max-w-4xl space-y-3">
-        {/* Pipeline Stepper */}
         <div className="rounded-xl border border-slate-800/80 bg-slate-900/80 p-3.5 shadow-lg backdrop-blur">
           <div className="mb-2 flex items-center justify-between text-xs text-slate-400">
             <span className="font-semibold text-slate-200">AST Analysis Progress</span>
@@ -806,10 +775,9 @@ export function LoadingScreen({
           </div>
         </div>
 
-        {/* Fun PHP Trivia Ticker */}
         <div className="flex items-center justify-between rounded-xl border border-blue-900/40 bg-blue-950/40 px-4 py-2.5 text-xs text-blue-200 backdrop-blur">
           <div className="flex items-center gap-2 truncate">
-            <span className="text-sm">✨</span>
+            <SvgSparkles className="h-4 w-4 text-cyan-400 shrink-0" />
             <p className="truncate italic">{PHP_TRIVIA[triviaIdx]}</p>
           </div>
           <button

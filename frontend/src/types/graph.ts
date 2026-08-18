@@ -1,5 +1,6 @@
-// Mirrors backend/docs/SCHEMA.md — keep in sync with that doc and with
-// backend/src/Extractor.php + backend/src/Analysis/DeadCodeAnalyzer.php.
+// Mirrors backend/docs/SCHEMA.md & rich client-side analysis
+
+export type EdgeCallType = 'static' | 'instance' | 'unknown';
 
 export interface CodeNodeData extends Record<string, unknown> {
   label: string;
@@ -8,6 +9,15 @@ export interface CodeNodeData extends Record<string, unknown> {
   end_line: number | null;
   syntax_error: string | null;
   warnings: string[];
+  // Extended analysis properties
+  visibility?: 'public' | 'protected' | 'private';
+  is_static?: boolean;
+  loc?: number;
+  highlighted?: boolean;
+  dimmed?: boolean;
+  selected?: boolean;
+  isInCycle?: boolean;
+  isInPath?: boolean;
 }
 
 export interface GraphNode {
@@ -21,6 +31,9 @@ export interface GraphEdge {
   source: string;
   target: string;
   animated: boolean;
+  call_type?: EdgeCallType;
+  isInCycle?: boolean;
+  isInPath?: boolean;
 }
 
 export interface Graph {

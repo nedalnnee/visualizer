@@ -1,0 +1,21 @@
+{
+    "name": "visualizer/backend",
+    "description": "PHP Code Visualizer - AST extraction and static analysis CLI",
+    "type": "project",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.2",
+        "nikic/php-parser": "^5.0"
+    },
+    "require-dev": {
+        "phpstan/phpstan": "^1.11"
+    },
+    "autoload": {
+        "psr-4": {
+            "Visualizer\\": "src/"
+        }
+    },
+    "config": {
+        "sort-packages": true
+    }
+}

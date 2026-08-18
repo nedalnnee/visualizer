@@ -1,0 +1,54 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+require __DIR__ . '/../vendor/autoload.php';
+
+use Visualizer\Analysis\DeadCodeAnalyzer;
+use Visualizer\Extractor;
+
+$target = $argv[1] ?? null;
+
+if ($target === null || !is_dir($target)) {
+    fwrite(STDERR, "Usage: visualize <path-to-php-project> [output.json]\n");
+    exit(1);
+}
+
+$output = $argv[2] ?? 'graph.json';
+
+$extractor = new Extractor($target);
+$graph = $extractor->extract();
+$graph = (new DeadCodeAnalyzer())->analyze($graph);
+
+$json = json_encode($graph, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+if ($json === false) {
+    fwrite(STDERR, 'Failed to encode graph: ' . json_last_error_msg() . "\n");
+    exit(1);
+}
+
+file_put_contents($output, $json);
+
+$failed = 0;
+$flagged = 0;
+foreach ($graph['nodes'] as $node) {
+    if ($node['data']['syntax_error'] !== null) {
+        $failed++;
+    }
+    if ($node['data']['warnings'] !== []) {
+        $flagged++;
+    }
+}
+
+fwrite(
+    STDOUT,
+    sprintf(
+        "Wrote %d nodes (%d parse errors, %d flagged), %d edges to %s\n",
+        count($graph['nodes']),
+        $failed,
+        $flagged,
+        count($graph['edges']),
+        $output
+    )
+);

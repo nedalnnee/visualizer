@@ -1,0 +1,14 @@
+{
+  "name": "php-code-visualizer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "PHP Code Visualizer - interactive DAG visualizer for PHP codebases",
+  "scripts": {
+    "setup": "npm --prefix frontend install && cd backend && composer install",
+    "dev": "npm --prefix frontend run dev -- --open",
+    "visualize": "php backend/bin/visualize",
+    "visualize:sample": "php backend/bin/visualize backend/tests/fixtures/sample frontend/public/graph.json",
+    "start": "npm run visualize:sample && npm run dev",
+    "build": "npm --prefix frontend run build"
+  }
+}

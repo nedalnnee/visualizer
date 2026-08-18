@@ -1,8 +1,13 @@
 # graph.json Schema
 
-The single interchange artifact between `backend/` and `frontend/`. Must
-conform to React Flow's expected node/edge shape (`data` payload is free-form
-but the fields below are contractual — both sides depend on them).
+The single interchange shape between `backend/` and `frontend/`. Must conform
+to React Flow's expected node/edge shape (`data` payload is free-form but the
+fields below are contractual — both sides depend on them).
+
+Despite the name, this is no longer necessarily a *file* — since Phase 5,
+`GET /api/graph?project_id=` returns exactly this shape over HTTP, and
+`backend/bin/visualize` still writes it to disk as before. Same schema,
+two delivery mechanisms; keep both in sync with this doc.
 
 ```json
 {

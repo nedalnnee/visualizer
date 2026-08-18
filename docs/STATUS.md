@@ -118,3 +118,75 @@ assuming something works.
   exercised — the "100+ nodes smoothly" success criterion in `docs/SPEC.md`
   is unverified), and the PHPStan-vs-heuristic dead-code gap noted in the
   Phase 2 section above.
+
+## Phase 5 details (as of 2026-08-18)
+
+Not in the original spec — added afterward at user request: a dashboard that
+lists known projects, lets you pick one and a module/file/all scope to
+render, and lets you click into cross-file connections to pull them into the
+same canvas, with dragging preserved (React Flow nodes are draggable by
+default; nothing disables it).
+
+**Backend — went from a one-shot CLI to a live API:**
+- `backend/src/Db.php` / `backend/src/Repository/ProjectRepository.php` — a
+  SQLite-backed project registry (`backend/storage/visualizer.sqlite`,
+  auto-created). Originally asked for as MySQL; there was a local MariaDB
+  running but no known root password, and the user chose SQLite over sorting
+  out credentials — zero setup, which is why the repository interface is
+  intentionally the thin part (`all()`, `find()`, `create()`) so swapping the
+  driver later stays contained to `Db.php`.
+- `backend/public/index.php` — front controller for `composer serve`
+  (`php -S localhost:8000 -t public`). Three routes: `GET/POST /api/projects`,
+  `GET /api/graph?project_id=`. Wide-open CORS (`*`) since this is a local
+  dev tool. No caching — every `/api/graph` call re-runs Phase 1+2 extraction
+  against the filesystem from scratch.
+- `backend/bin/visualize` (the Phase 1 CLI) is untouched and still works
+  standalone.
+- Verified via `curl`: registered the fixture project, listed it back,
+  fetched its graph, confirmed a genuinely cross-file edge appears (see
+  below).
+
+**Frontend — dashboard + scoping + expansion:**
+- `frontend/src/components/Dashboard.tsx` — project cards + an inline
+  "add project" form (`POST /api/projects`). No project-deletion UI yet.
+- `frontend/src/components/ProjectExplorer.tsx` — fetches one project's
+  *entire* graph once (`useProjectGraph`), then does everything else as a
+  client-side filter over that single payload:
+  - `scopeFiles` (from `ScopePicker`, built from `frontend/src/lib/fileTree.ts`)
+    — which files are in the initially-rendered set. Defaults to "all".
+  - `expandedNodeIds` — nodes pulled in afterward by clicking; reset whenever
+    the scope selection changes, individually resettable via the header
+    button once non-empty.
+  - No separate "scoped graph" API call exists — deliberate, see the
+    "Scoping and cross-file expansion are client-side" note in `CLAUDE.md`.
+- `frontend/src/components/GraphCanvas.tsx` was refactored from
+  self-fetching (`useGraph` + `/graph.json`) to taking `graph` as a prop, so
+  it's reusable by `ProjectExplorer`. The old fixture-demo path
+  (`frontend/public/graph.json`, `src/hooks/useGraph.ts`) was deleted as dead
+  code rather than kept alongside — the dashboard is now the only entry
+  point into `App.tsx`.
+- `frontend/src/components/CodeNode.tsx`/`InspectorPanel.tsx` are unchanged
+  from Phase 4; `GraphCanvas`'s `onNodeClick` now also reports the clicked
+  node id upward so `ProjectExplorer` can compute newly-visible neighbors.
+
+**Verification:** added a genuine cross-file call to the fixture
+(`AuthService::log()` → `Logger::write()` in a new `app/Support/Logger.php`)
+specifically because the original fixture had no cross-file edges to test
+expansion against. Confirmed live in a browser: scoping to `Services/` hides
+`Logger::write()`; clicking `log()` pulls `write()` into the canvas (new
+node + edge, correct file shown in the inspector) without leaving the
+current view; "Reset expanded connections" appears once something's been
+expanded. No console errors.
+
+**Known gaps:**
+- No caching — a large target project means every dashboard visit re-parses
+  it from scratch. Acceptable at fixture scale; revisit if a real project
+  turns out too slow.
+- Dagre re-lays-out the *entire* visible graph on every expansion, so a
+  manually-dragged node's position doesn't survive an expansion click. Not
+  addressed — full relayout was simpler and matches Phase 3's existing
+  behavior; incremental layout that preserves dragged positions would be a
+  separate piece of work if it turns out to matter in practice.
+- No project-removal UI (only add/list).
+- Still unverified against a real/large project — only the fixture has been
+  exercised end-to-end.
